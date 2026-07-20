@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: placement_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - db_data:/app/database
+      - model_data:/app/models
+      - raw_data:/app/data/raw
+      - reports_data:/app/reports
+    environment:
+      - DATABASE_URL=sqlite:///database/placement.db
+      - PORT=8000
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    restart: always
+
+  frontend:
+    build: .
+    container_name: placement_frontend
+    ports:
+      - "8501:8501"
+    volumes:
+      - db_data:/app/database
+      - model_data:/app/models
+      - raw_data:/app/data/raw
+      - reports_data:/app/reports
+    environment:
+      - BACKEND_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    command: streamlit run streamlit/app.py --server.port 8501 --server.address 0.0.0.0
+    restart: always
+
+volumes:
+  db_data:
+  model_data:
+  raw_data:
+  reports_data:
