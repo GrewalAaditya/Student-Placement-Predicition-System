@@ -33,8 +33,6 @@ htmlcov/
 
 # Local databases and models
 database/*.db
-models/*.pkl
-models/*.joblib
 
 # User logs & generated artifacts
 logs/
