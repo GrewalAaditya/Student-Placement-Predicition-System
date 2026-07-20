@@ -1,26 +1,29 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sqlalchemy.orm import Session
-from src.database import SessionLocal, PredictionRecord, TrainingLog
+from src.database import safe_session, PredictionRecord, TrainingLog
 from src.config import MODELS_DIR
 
 def render_home_page():
     st.markdown('<h1 class="main-title">Student Placement Portal</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Predictive analytics and student placement metrics.</p>', unsafe_allow_html=True)
 
-    db = SessionLocal()
-    try:
-        total_preds = db.query(PredictionRecord).count()
-        placed_preds = db.query(PredictionRecord).filter(PredictionRecord.predicted_placed == True).count()
-        placed_ratio = (placed_preds / total_preds * 100) if total_preds > 0 else 0.0
-        
-        avg_readiness = db.query(PredictionRecord).with_entities(PredictionRecord.readiness_score).all()
-        avg_readiness_val = pd.Series([r[0] for r in avg_readiness]).mean() if avg_readiness else 0.0
-        
-        models_trained = db.query(TrainingLog).count()
-    finally:
-        db.close()
+    total_preds = 0
+    placed_preds = 0
+    placed_ratio = 0.0
+    avg_readiness_val = 0.0
+    models_trained = 0
+
+    with safe_session() as db:
+        if db:
+            total_preds = db.query(PredictionRecord).count()
+            placed_preds = db.query(PredictionRecord).filter(PredictionRecord.predicted_placed == True).count()
+            placed_ratio = (placed_preds / total_preds * 100) if total_preds > 0 else 0.0
+
+            avg_readiness = db.query(PredictionRecord).with_entities(PredictionRecord.readiness_score).all()
+            avg_readiness_val = pd.Series([r[0] for r in avg_readiness]).mean() if avg_readiness else 0.0
+
+            models_trained = db.query(TrainingLog).count()
 
     col1, col2, col3, col4 = st.columns(4)
     
@@ -93,9 +96,8 @@ def render_home_page():
         preprocessor_exists = (MODELS_DIR / "preprocessor.pkl").exists()
 
         if model_exists and preprocessor_exists:
-            db = SessionLocal()
-            try:
-                latest_log = db.query(TrainingLog).order_by(TrainingLog.trained_at.desc()).first()
+            with safe_session() as db:
+                latest_log = db.query(TrainingLog).order_by(TrainingLog.trained_at.desc()).first() if db else None
                 if latest_log:
                     st.success(f"**Status: READY**")
                     st.write(f"**Active Model:** {latest_log.model_name}")
@@ -104,8 +106,6 @@ def render_home_page():
                     st.write(f"**Last Trained:** {latest_log.trained_at.strftime('%Y-%m-%d %H:%M:%S')}")
                 else:
                     st.warning("Model files found on disk, but training record missing in database logs.")
-            finally:
-                db.close()
         else:
             st.error("**Status: MODELS UNTRAINED**")
             st.write("No trained model found. Please go to the **Train Models** page to train and export the best model.")
@@ -116,9 +116,8 @@ def render_home_page():
     st.write("---")
     
     st.subheader("Historical Analytics (Database Predictions)")
-    db = SessionLocal()
-    try:
-        query = db.query(PredictionRecord).order_by(PredictionRecord.predicted_at.desc()).limit(100).all()
+    with safe_session() as db:
+        query = db.query(PredictionRecord).order_by(PredictionRecord.predicted_at.desc()).limit(100).all() if db else []
         if query:
             df_preds = pd.DataFrame([{
                 "CGPA": q.cgpa,
@@ -127,9 +126,9 @@ def render_home_page():
                 "Readiness Score": q.readiness_score,
                 "Predicted Placement": "Placed" if q.predicted_placed else "Not Placed"
             } for q in query])
-            
+
             fig = px.scatter(
-                df_preds, x="Programming Score", y="CGPA", 
+                df_preds, x="Programming Score", y="CGPA",
                 color="Predicted Placement", size="Readiness Score",
                 color_discrete_map={"Placed": "#10B981", "Not Placed": "#F43F5E"},
                 title="CGPA vs Programming Score",
@@ -138,6 +137,4 @@ def render_home_page():
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No prediction queries logged yet. Test a student profile in the 'Predict Placement' screen to seed analytics.")
-    finally:
-        db.close()
 

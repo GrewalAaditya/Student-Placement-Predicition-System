@@ -22,6 +22,16 @@ _pages_dir = str(Path(__file__).resolve().parent / "_pages")
 if _pages_dir not in sys.path:
     sys.path.insert(0, _pages_dir)
 
+@st.cache_resource
+def initialize_database():
+    from src.database import init_db
+    try:
+        init_db()
+    except Exception as e:
+        st.error(f"Error initializing database: {e}")
+
+initialize_database()
+
 from home import render_home_page
 from upload import render_upload_page
 from analysis import render_analysis_page
