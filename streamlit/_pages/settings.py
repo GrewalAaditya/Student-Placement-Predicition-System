@@ -70,51 +70,48 @@ def render_settings_page():
 
     st.subheader("📂 Prediction Logs")
     
+    db = SessionLocal()
     try:
-        db = SessionLocal()
-        try:
-            records = db.query(PredictionRecord).order_by(PredictionRecord.predicted_at.desc()).limit(15).all()
-            if records:
-                df_log = pd.DataFrame([{
-                    "ID": r.id,
-                    "Student ID": r.student_id,
-                    "CGPA": r.cgpa,
-                    "Branch": r.branch,
-                    "Readiness Score": r.readiness_score,
-                    "Prediction": "Placed" if r.predicted_placed else "Not Placed",
-                    "Probability %": r.placement_probability,
-                    "Timestamp": r.predicted_at.strftime('%Y-%m-%d %H:%M')
-                } for r in records])
-                
-                st.dataframe(df_log, use_container_width=True, hide_index=True)
-                
-                # Export to csv option
-                csv_df = pd.DataFrame([{
-                    "id": r.id,
-                    "student_id": r.student_id,
-                    "cgpa": r.cgpa,
-                    "branch": r.branch,
-                    "attendance": r.attendance,
-                    "programming_score": r.programming_score,
-                    "predicted_placed": r.predicted_placed,
-                    "probability": r.placement_probability,
-                    "readiness_score": r.readiness_score,
-                    "predicted_at": r.predicted_at
-                } for r in db.query(PredictionRecord).all()])
-                
-                csv_str = csv_df.to_csv(index=False)
-                st.download_button(
-                    label="Download Prediction History (CSV)",
-                    data=csv_str,
-                    file_name="placement_prediction_history.csv",
-                    mime="text/csv"
-                )
-            else:
-                st.info("No predictions logged in SQLite database yet.")
-        finally:
-            db.close()
-    except Exception as db_err:
-        st.info("Historical database prediction logs are currently unavailable.")
+        records = db.query(PredictionRecord).order_by(PredictionRecord.predicted_at.desc()).limit(15).all()
+        if records:
+            df_log = pd.DataFrame([{
+                "ID": r.id,
+                "Student ID": r.student_id,
+                "CGPA": r.cgpa,
+                "Branch": r.branch,
+                "Readiness Score": r.readiness_score,
+                "Prediction": "Placed" if r.predicted_placed else "Not Placed",
+                "Probability %": r.placement_probability,
+                "Timestamp": r.predicted_at.strftime('%Y-%m-%d %H:%M')
+            } for r in records])
+            
+            st.dataframe(df_log, use_container_width=True, hide_index=True)
+            
+            # Export to csv option
+            csv_df = pd.DataFrame([{
+                "id": r.id,
+                "student_id": r.student_id,
+                "cgpa": r.cgpa,
+                "branch": r.branch,
+                "attendance": r.attendance,
+                "programming_score": r.programming_score,
+                "predicted_placed": r.predicted_placed,
+                "probability": r.placement_probability,
+                "readiness_score": r.readiness_score,
+                "predicted_at": r.predicted_at
+            } for r in db.query(PredictionRecord).all()])
+            
+            csv_str = csv_df.to_csv(index=False)
+            st.download_button(
+                label="Download Prediction History (CSV)",
+                data=csv_str,
+                file_name="placement_prediction_history.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("No predictions logged in SQLite database yet.")
+    finally:
+        db.close()
 
     st.write("---")
 
